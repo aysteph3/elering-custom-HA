@@ -1,9 +1,10 @@
 # Elering Estfeed custom component
 
-This is a starter Home Assistant custom component that exposes:
-- Grid import energy (kWh, total_increasing, when a cumulative meter reading is present in the upstream payload)
-- Monthly grid import energy (kWh)
-- Daily grid import energy (kWh)
+This is a starter Home Assistant custom component that currently:
+- Fetches up to the latest 7 days of meter data from the Estfeed API
+- Exposes `Grid import energy` as a `total_increasing` sensor only when the upstream payload includes a cumulative import reading
+- Exposes `Monthly grid import energy` by summing import intervals from the latest month present in the fetched payload
+- Exposes `Daily grid import energy` by summing import intervals from the latest day present in the fetched payload
 
 ## Install
 Copy `custom_components/elering_estfeed` into your Home Assistant config directory.
@@ -17,5 +18,6 @@ Settings -> Devices & Services -> Add Integration
 - Meter EIC: your metering point identifier
 
 ## Important
-You will probably need to inspect the real JSON payload returned by Elering and adjust
-`_parse_meter_snapshot()` in `api.py`.
+The payload parser is still heuristic. It tries several likely row keys and cumulative-reading
+fields, but you may still need to inspect the real JSON returned by Elering and adjust
+`_parse_meter_snapshot()` in `api.py` to match your account's payload shape.
