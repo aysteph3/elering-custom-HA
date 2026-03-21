@@ -1,0 +1,9 @@
+{
+  "domain": "elering_estfeed",
+  "name": "Elering Estfeed",
+  "version": "0.1.0",
+  "documentation": "https://estfeed.elering.ee/",
+  "config_flow": true,
+  "requirements": [],
+  "codeowners": []
+}

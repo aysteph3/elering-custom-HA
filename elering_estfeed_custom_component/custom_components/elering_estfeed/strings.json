@@ -1,0 +1,14 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Elering Estfeed",
+        "description": "Paste a bearer access token and your meter EIC.",
+        "data": {
+          "access_token": "Access token",
+          "meter_eic": "Meter EIC"
+        }
+      }
+    }
+  }
+}
