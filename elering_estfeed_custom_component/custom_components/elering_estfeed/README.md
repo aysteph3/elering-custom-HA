@@ -1,8 +1,9 @@
 # Elering Estfeed custom component
 
 This is a starter Home Assistant custom component that exposes:
-- Grid import energy (kWh, total_increasing)
-- Grid import power (W, interval average)
+- Grid import energy (kWh, total_increasing, when a cumulative meter reading is present in the upstream payload)
+- Monthly grid import energy (kWh)
+- Daily grid import energy (kWh)
 
 ## Install
 Copy `custom_components/elering_estfeed` into your Home Assistant config directory.
