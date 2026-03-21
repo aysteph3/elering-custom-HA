@@ -23,7 +23,7 @@ class MeterSnapshot:
 
 
 class EleringApiClient:
-    """Thin API client around Elering Datahub."""
+    """Thin API client around the Elering Estfeed service."""
 
     def __init__(self, session: aiohttp.ClientSession, access_token: str, meter_eic: str) -> None:
         self._session = session
