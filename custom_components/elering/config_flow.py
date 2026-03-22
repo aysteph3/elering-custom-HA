@@ -9,14 +9,14 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import EleringApiClient, EleringApiError, EleringAuthenticationError
-from .const import CONF_ACCESS_TOKEN, CONF_METER_EIC, DOMAIN
+from .const import CONF_COOKIE_HEADER, CONF_METER_EIC, DOMAIN
 
 
 async def async_validate_input(hass, user_input) -> str:
     """Validate the provided credentials against the upstream API."""
     client = EleringApiClient(
         session=async_get_clientsession(hass),
-        access_token=user_input[CONF_ACCESS_TOKEN],
+        cookie_header=user_input[CONF_COOKIE_HEADER],
         meter_eic=user_input[CONF_METER_EIC],
     )
     await client.async_fetch_meter_data()
@@ -26,7 +26,7 @@ async def async_validate_input(hass, user_input) -> str:
 class EleringConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Elering."""
 
-    VERSION = 1
+    VERSION = 2
 
     async def async_step_user(self, user_input=None) -> FlowResult:
         """Handle the initial step."""
@@ -44,11 +44,63 @@ class EleringConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(title=title, data=user_input)
 
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_ACCESS_TOKEN): str,
-                vol.Required(CONF_METER_EIC): str,
-            }
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_COOKIE_HEADER): str,
+                    vol.Required(CONF_METER_EIC): str,
+                }
+            ),
+            errors=errors,
         )
 
-        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+    @staticmethod
+    def async_get_options_flow(config_entry):
+        """Return the options flow handler."""
+        return EleringOptionsFlow(config_entry)
+
+
+class EleringOptionsFlow(config_entries.OptionsFlow):
+    """Allow updating cookie-backed authentication from the UI."""
+
+    def __init__(self, config_entry) -> None:
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None) -> FlowResult:
+        """Manage the integration options."""
+        errors = {}
+
+        if user_input is not None:
+            validation_input = {
+                CONF_COOKIE_HEADER: user_input[CONF_COOKIE_HEADER],
+                CONF_METER_EIC: user_input[CONF_METER_EIC],
+            }
+            try:
+                await async_validate_input(self.hass, validation_input)
+            except EleringAuthenticationError:
+                errors["base"] = "invalid_auth"
+            except (EleringApiError, aiohttp.ClientError, TimeoutError):
+                errors["base"] = "cannot_connect"
+            else:
+                return self.async_create_entry(data=user_input)
+
+        current_cookie = self.config_entry.options.get(
+            CONF_COOKIE_HEADER,
+            self.config_entry.data.get(CONF_COOKIE_HEADER, ""),
+        )
+        current_meter_eic = self.config_entry.options.get(
+            CONF_METER_EIC,
+            self.config_entry.data.get(CONF_METER_EIC, ""),
+        )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_COOKIE_HEADER, default=current_cookie): str,
+                    vol.Required(CONF_METER_EIC, default=current_meter_eic): str,
+                }
+            ),
+            errors=errors,
+        )

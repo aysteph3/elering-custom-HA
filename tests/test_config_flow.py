@@ -30,7 +30,7 @@ def _install_stub_modules(package_name: str) -> None:
 
     voluptuous_stub = types.ModuleType("voluptuous")
     voluptuous_stub.Schema = lambda schema: schema
-    voluptuous_stub.Required = lambda value: value
+    voluptuous_stub.Required = lambda value, default=None: value
     sys.modules["voluptuous"] = voluptuous_stub
 
     homeassistant_stub = types.ModuleType("homeassistant")
@@ -43,7 +43,12 @@ def _install_stub_modules(package_name: str) -> None:
         def __init_subclass__(cls, **kwargs):
             return super().__init_subclass__()
 
+    class _OptionsFlow:
+        def __init__(self, *args, **kwargs):
+            pass
+
     config_entries_stub.ConfigFlow = _ConfigFlow
+    config_entries_stub.OptionsFlow = _OptionsFlow
     data_entry_flow_stub.FlowResult = dict
     aiohttp_client_stub.async_get_clientsession = lambda hass: hass
 
@@ -94,21 +99,21 @@ class ValidateInputTests(unittest.TestCase):
             title = asyncio.run(
                 CONFIG_FLOW_MODULE.async_validate_input(
                     hass=object(),
-                    user_input={"access_token": "abc", "meter_eic": "123"},
+                    user_input={"cookie_header": "sid=abc", "meter_eic": "123"},
                 )
             )
 
         self.assertEqual(title, "Elering 123")
 
     def test_propagates_authentication_error(self):
-        mock_fetch = AsyncMock(side_effect=API_MODULE.EleringAuthenticationError("bad token"))
+        mock_fetch = AsyncMock(side_effect=API_MODULE.EleringAuthenticationError("bad cookie"))
 
         with patch.object(API_MODULE.EleringApiClient, "async_fetch_meter_data", mock_fetch):
             with self.assertRaises(API_MODULE.EleringAuthenticationError):
                 asyncio.run(
                     CONFIG_FLOW_MODULE.async_validate_input(
                         hass=object(),
-                        user_input={"access_token": "abc", "meter_eic": "123"},
+                        user_input={"cookie_header": "sid=abc", "meter_eic": "123"},
                     )
                 )
 

@@ -1,10 +1,10 @@
 # Elering for Home Assistant
 
-Elering is a Home Assistant custom integration that fetches meter consumption data through the Elering DataHub API using an authenticated browser access token and a meter EIC. It exposes import-energy sensors for the latest available cumulative, monthly, and daily totals.
+Elering is a Home Assistant custom integration that fetches meter consumption data through the Elering DataHub API using an authenticated browser session cookie header and a meter EIC. It exposes import-energy sensors for the latest available cumulative, monthly, and daily totals.
 
 ## Features
 
-- Validates the supplied access token and meter EIC during config flow setup.
+- Validates the supplied cookie header and meter EIC during config flow setup.
 - Fetches up to the latest seven days of meter data from the upstream API.
 - Provides three energy sensors:
   - `Grid import energy`
@@ -36,7 +36,7 @@ hacs.json
 6. Search for **Elering** and install it.
 7. Restart Home Assistant.
 
-If you do not publish GitHub releases, HACS can still install from the repository's default branch.
+Create a new GitHub release for version `0.2.0` so HACS can detect and offer the update. HACS can also install from the repository's default branch if needed.
 
 ## Configuration
 
@@ -46,22 +46,22 @@ After installation:
 2. Click **Add Integration**.
 3. Search for **Elering**.
 4. Enter:
-   - **Access token**: paste only the token value from your logged-in browser session, without the `Bearer` prefix.
+   - **Cookie header**: paste the full cookie string from your logged-in browser session, for example `JSESSIONID=...; XSRF-TOKEN=...`.
    - **Meter EIC**: your metering point identifier.
 
-During setup, the integration validates the token and meter EIC against the upstream API before creating the config entry.
+During setup, the integration validates the cookie header and meter EIC against the upstream API before creating the config entry.
 
 ## Authentication and session limitations
 
-This integration currently depends on a browser-derived access token for the upstream Elering DataHub session.
+This integration currently depends on browser-derived session cookies for the upstream Elering DataHub session.
 
-- Tokens may expire without warning.
+- Cookies may expire without warning.
 - Session handling is controlled by Elering, not by Home Assistant.
-- If authentication stops working, you may need to obtain a fresh token from a logged-in browser session and reconfigure the integration.
+- If authentication stops working, you can update the cookie header from the Home Assistant integration options without removing and re-adding the integration.
 - Any upstream login-flow, API, or payload changes can require updates to this custom integration.
 
 ## Notes for maintainers
 
-- `manifest.json` includes a version so the repository is ready for future GitHub tags/releases.
+- `manifest.json` includes version `0.2.0`; publish a matching GitHub tag/release so HACS detects the update.
 - For the best HACS experience, make the GitHub repository public and add releases later if you want versioned installs.
 - Inclusion in the default HACS repositories is a separate review process; this repository is only prepared for HACS custom-repository usage.

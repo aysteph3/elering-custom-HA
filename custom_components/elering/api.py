@@ -34,9 +34,9 @@ class MeterSnapshot:
 class EleringApiClient:
     """Thin API client around the Elering Estfeed service."""
 
-    def __init__(self, session: aiohttp.ClientSession, access_token: str, meter_eic: str) -> None:
+    def __init__(self, session: aiohttp.ClientSession, cookie_header: str, meter_eic: str) -> None:
         self._session = session
-        self._access_token = access_token
+        self._cookie_header = cookie_header
         self._meter_eic = meter_eic
 
     async def async_fetch_meter_data(self) -> MeterSnapshot:
@@ -59,9 +59,9 @@ class EleringApiClient:
         }
 
         headers = {
-            "Authorization": f"Bearer {self._access_token}",
-            "Content-Type": "application/json",
             "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Cookie": self._cookie_header,
         }
 
         async with self._session.post(
@@ -219,57 +219,26 @@ class EleringApiClient:
         )
         if row_value is None:
             return current_value
+        return row_value
 
-        unit = str(row.get("unit") or "kWh")
-        return self._normalize_to_kwh(row_value, unit)
-
-    def _coerce_float_from_keys(self, payload: dict, keys: tuple[str, ...]) -> float | None:
-        """Return the first float-like value found in the provided keys."""
+    def _coerce_float_from_keys(self, data: dict, keys: tuple[str, ...]) -> float | None:
+        """Return the first key that can be parsed as a float."""
         for key in keys:
-            if key not in payload:
+            if key not in data:
                 continue
-
             try:
-                return float(payload[key])
+                return float(data[key])
             except (TypeError, ValueError):
                 continue
-
         return None
 
-    def _normalize_to_kwh(self, value: float, unit: str) -> float:
-        """Normalize supported units to kWh."""
-        unit_normalized = unit.lower()
-        if unit_normalized == "wh":
-            return value / 1000
-        if unit_normalized == "mwh":
-            return value * 1000
-        return value
-
-    def _parse_period_end_date(self, period_end: str | None) -> date | None:
-        """Parse a period end value into a UTC calendar date."""
-        if period_end is None:
-            return None
-
-        value = str(period_end).strip()
+    def _parse_period_end_date(self, value: str | None) -> date | None:
+        """Parse the row period end into a date."""
         if not value:
             return None
 
-        candidates = [value]
-        if value.endswith("Z"):
-            candidates.append(value.replace("Z", "+00:00"))
-
-        for candidate in candidates:
-            try:
-                parsed = datetime.fromisoformat(candidate)
-                if parsed.tzinfo is None:
-                    parsed = parsed.replace(tzinfo=timezone.utc)
-                else:
-                    parsed = parsed.astimezone(timezone.utc)
-                return parsed.date()
-            except ValueError:
-                continue
-
         try:
-            return date.fromisoformat(value[:10])
+            normalized = value.replace("Z", "+00:00")
+            return datetime.fromisoformat(normalized).date()
         except ValueError:
             return None

@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import EleringApiClient
-from .const import CONF_ACCESS_TOKEN, CONF_METER_EIC, DOMAIN
+from .const import CONF_COOKIE_HEADER, CONF_METER_EIC, DOMAIN
 from .coordinator import EleringCoordinator
 
 PLATFORMS = [Platform.SENSOR]
@@ -18,8 +18,8 @@ async def async_setup_entry(hass, entry):
 
     client = EleringApiClient(
         session=session,
-        access_token=entry.data[CONF_ACCESS_TOKEN],
-        meter_eic=entry.data[CONF_METER_EIC],
+        cookie_header=entry.options.get(CONF_COOKIE_HEADER, entry.data[CONF_COOKIE_HEADER]),
+        meter_eic=entry.options.get(CONF_METER_EIC, entry.data[CONF_METER_EIC]),
     )
 
     coordinator = EleringCoordinator(hass, client)
