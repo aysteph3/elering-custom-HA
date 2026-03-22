@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PACKAGE_DIR = REPO_ROOT / "elering_estfeed_custom_component" / "custom_components" / "elering_estfeed"
+PACKAGE_DIR = REPO_ROOT / "custom_components" / "elektrilevi_meter"
 
 
 def _install_stub_modules(package_name: str) -> None:
@@ -55,7 +55,7 @@ def _install_stub_modules(package_name: str) -> None:
 
 
 def _load_modules():
-    package_name = "_test_elering_estfeed_config_flow"
+    package_name = "_test_elektrilevi_meter_config_flow"
     _install_stub_modules(package_name)
 
     const_spec = spec_from_file_location(f"{package_name}.const", PACKAGE_DIR / "const.py")
@@ -98,7 +98,7 @@ class ValidateInputTests(unittest.TestCase):
                 )
             )
 
-        self.assertEqual(title, "Elering 123")
+        self.assertEqual(title, "Elektrilevi Meter 123")
 
     def test_propagates_authentication_error(self):
         mock_fetch = AsyncMock(side_effect=API_MODULE.EleringAuthenticationError("bad token"))

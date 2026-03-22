@@ -1,4 +1,4 @@
-"""Coordinator for Elering Estfeed."""
+"""Coordinator for Elektrilevi Meter."""
 
 from __future__ import annotations
 
@@ -29,4 +29,4 @@ class EleringCoordinator(DataUpdateCoordinator):
         try:
             return await self.client.async_fetch_meter_data()
         except Exception as err:
-            raise UpdateFailed(f"Error communicating with Elering: {err}") from err
+            raise UpdateFailed(f"Error communicating with Elering DataHub: {err}") from err

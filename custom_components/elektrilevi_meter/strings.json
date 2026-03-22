@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to Elering Estfeed",
+        "title": "Connect to Elektrilevi Meter",
         "description": "Paste your access token and meter EIC. Do not include the word Bearer.",
         "data": {
           "access_token": "Access token",
@@ -13,6 +13,6 @@
   },
   "error": {
     "invalid_auth": "Authentication failed. Check the access token and meter EIC.",
-    "cannot_connect": "Could not connect to Elering. Try again later."
+    "cannot_connect": "Could not connect to Elering DataHub. Try again later."
   }
 }

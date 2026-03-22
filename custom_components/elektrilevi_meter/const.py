@@ -1,6 +1,6 @@
-"""Constants for the Elering Estfeed integration."""
+"""Constants for the Elektrilevi Meter integration."""
 
-DOMAIN = "elering_estfeed"
+DOMAIN = "elektrilevi_meter"
 
 CONF_ACCESS_TOKEN = "access_token"
 CONF_METER_EIC = "meter_eic"
