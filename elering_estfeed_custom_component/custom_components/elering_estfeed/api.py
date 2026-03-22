@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 import logging
 
 import aiohttp
@@ -33,10 +33,8 @@ class EleringApiClient:
 
     async def async_fetch_meter_data(self) -> MeterSnapshot:
         """Fetch recent meter data and convert it into HA-friendly sensor values."""
-        now = datetime.now(timezone.utc)
-
-        # Seven days gives you enough data to recover if HA was down for a while.
-        start = (now - timedelta(days=7)).replace(second=0, microsecond=0)
+        now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+        start = self._month_start(now)
 
         payload = {
             "searchCriteria": {
@@ -69,6 +67,10 @@ class EleringApiClient:
 
         _LOGGER.debug("Elering payload: %s", data)
         return self._parse_meter_snapshot(data)
+
+    def _month_start(self, value: datetime) -> datetime:
+        """Return the start of the current UTC month for API queries."""
+        return value.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     def _parse_meter_snapshot(self, data: dict) -> MeterSnapshot:
         """Parse the returned JSON.
