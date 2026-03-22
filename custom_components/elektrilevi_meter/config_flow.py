@@ -1,4 +1,4 @@
-"""Config flow for Elering Estfeed."""
+"""Config flow for Elektrilevi Meter."""
 
 from __future__ import annotations
 
@@ -20,11 +20,11 @@ async def async_validate_input(hass, user_input) -> str:
         meter_eic=user_input[CONF_METER_EIC],
     )
     await client.async_fetch_meter_data()
-    return f"Elering {user_input[CONF_METER_EIC]}"
+    return f"Elektrilevi Meter {user_input[CONF_METER_EIC]}"
 
 
-class EleringEstfeedConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Elering Estfeed."""
+class ElektrileviMeterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Elektrilevi Meter."""
 
     VERSION = 1
 
