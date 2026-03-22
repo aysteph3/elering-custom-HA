@@ -45,7 +45,7 @@ class EleringCumulativeImportEnergySensor(BaseEleringSensor):
 
     @property
     def unique_id(self):
-        return f"{self._entry.entry_id}_grid_import_energy"
+        return f"{self._entry.entry_id}_cumulative_grid_import_energy"
 
     @property
     def native_value(self):

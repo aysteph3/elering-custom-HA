@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import sys
@@ -52,6 +53,11 @@ class ParseMeterSnapshotTests(unittest.TestCase):
 
     def setUp(self):
         self.client = EleringApiClient(session=None, access_token="token", meter_eic="meter")
+
+    def test_month_start_uses_first_day_of_current_month(self):
+        month_start = self.client._month_start(datetime(2026, 3, 21, 14, 35, 12, tzinfo=timezone.utc))
+
+        self.assertEqual(month_start, datetime(2026, 3, 1, 0, 0, tzinfo=timezone.utc))
 
     def test_uses_latest_row_cumulative_reading_and_computes_daily_monthly(self):
         snapshot = self.client._parse_meter_snapshot(
