@@ -69,7 +69,7 @@ class EleringApiClient:
             if combined_data is None:
                 combined_data = response_data
             else:
-                self._append_meter_rows(combined_data, page_rows)
+                self._merge_meter_page(combined_data, response_data, page_rows)
 
             if not self._has_additional_pages(response_data, page, page_size, len(page_rows)):
                 return combined_data or response_data
@@ -132,6 +132,15 @@ class EleringApiClient:
                     return
 
         combined_data["meterData"] = list(page_rows)
+
+    def _merge_meter_page(self, combined_data: dict, response_data: dict, page_rows: list) -> None:
+        """Merge page rows and refresh top-level metadata from the latest page."""
+        self._append_meter_rows(combined_data, page_rows)
+
+        for key, value in response_data.items():
+            if key in ("meterData", "data", "content", "items"):
+                continue
+            combined_data[key] = value
 
     def _has_additional_pages(
         self, data: dict, page: int, page_size: int, row_count: int

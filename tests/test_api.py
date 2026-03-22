@@ -191,6 +191,46 @@ class ParseMeterSnapshotTests(unittest.TestCase):
         self.assertEqual(snapshot.daily_import_kwh, 1502.0)
         self.assertEqual(snapshot.cumulative_import_kwh, 12.5)
 
+    def test_async_fetch_meter_data_preserves_latest_page_top_level_metadata(self):
+        responses = [
+            {
+                "items": [
+                    {
+                        "direction": "IMPORT",
+                        "quantity": 1000,
+                        "unit": "Wh",
+                        "periodEnd": "2026-03-21T00:00:00Z",
+                    }
+                ]
+                * 1000,
+                "cumulativeImportKwh": 500.0,
+                "pagination": {"totalPages": 2},
+            },
+            {
+                "items": [
+                    {
+                        "direction": "IMPORT",
+                        "quantity": 2.0,
+                        "unit": "kWh",
+                        "periodEnd": "2026-03-21T00:15:00Z",
+                    }
+                ],
+                "cumulativeImportKwh": 777.25,
+                "pagination": {"totalPages": 2},
+            },
+        ]
+
+        async def _fake_post(payload):
+            return responses[payload["pagination"]["page"]]
+
+        with patch.object(self.client, "_async_post_meter_data_page", side_effect=_fake_post):
+            snapshot = self._run_async(self.client.async_fetch_meter_data())
+
+        self.assertEqual(snapshot.monthly_import_kwh, 1002.0)
+        self.assertEqual(snapshot.daily_import_kwh, 1002.0)
+        self.assertEqual(snapshot.cumulative_import_kwh, 777.25)
+        self.assertEqual(snapshot.last_period_end, "2026-03-21T00:15:00Z")
+
     def _run_async(self, coro):
         import asyncio
 
