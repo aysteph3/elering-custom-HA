@@ -53,7 +53,7 @@ class ParseMeterSnapshotTests(unittest.TestCase):
     """Verify meter snapshot parsing."""
 
     def setUp(self):
-        self.client = EleringApiClient(session=None, access_token="token", meter_eic="meter")
+        self.client = EleringApiClient(session=None, cookie_header="sid=abc", meter_eic="meter")
 
     def test_uses_latest_row_cumulative_reading_and_computes_daily_monthly(self):
         snapshot = self.client._parse_meter_snapshot(
@@ -151,7 +151,7 @@ class FetchMeterDataErrorTests(unittest.IsolatedAsyncioTestCase):
     async def test_raises_authentication_error_for_401(self):
         response = _MockResponse(status=401, text_data='{"error":"unauthorized"}')
         session = _MockSession(response)
-        client = EleringApiClient(session=session, access_token="token", meter_eic="meter")
+        client = EleringApiClient(session=session, cookie_header="sid=abc", meter_eic="meter")
 
         with self.assertRaises(EleringAuthenticationError):
             await client.async_fetch_meter_data()
@@ -159,10 +159,24 @@ class FetchMeterDataErrorTests(unittest.IsolatedAsyncioTestCase):
     async def test_raises_api_error_for_other_4xx_5xx(self):
         response = _MockResponse(status=500, text_data='{"error":"boom"}')
         session = _MockSession(response)
-        client = EleringApiClient(session=session, access_token="token", meter_eic="meter")
+        client = EleringApiClient(session=session, cookie_header="sid=abc", meter_eic="meter")
 
         with self.assertRaises(EleringApiError):
             await client.async_fetch_meter_data()
+
+    async def test_sends_cookie_header_in_request(self):
+        response = _MockResponse(status=200, json_data={"meterData": []})
+        session = _MockSession(response)
+        client = EleringApiClient(
+            session=session,
+            cookie_header="JSESSIONID=abc; XSRF-TOKEN=def",
+            meter_eic="meter",
+        )
+
+        await client.async_fetch_meter_data()
+
+        self.assertEqual(session.calls[0]["headers"]["Cookie"], "JSESSIONID=abc; XSRF-TOKEN=def")
+        self.assertNotIn("Authorization", session.calls[0]["headers"])
 
 
 class _MockResponse:
@@ -187,8 +201,10 @@ class _MockResponse:
 class _MockSession:
     def __init__(self, response):
         self._response = response
+        self.calls = []
 
     def post(self, *args, **kwargs):
+        self.calls.append(kwargs)
         return self._response
 
 
