@@ -10,11 +10,11 @@ import unittest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PACKAGE_DIR = REPO_ROOT / "custom_components" / "elektrilevi_meter"
+PACKAGE_DIR = REPO_ROOT / "custom_components" / "elering"
 
 
 def _load_api_module():
-    package_name = "_test_elektrilevi_meter"
+    package_name = "_test_elering"
     package = types.ModuleType(package_name)
     package.__path__ = [str(PACKAGE_DIR)]
     sys.modules[package_name] = package

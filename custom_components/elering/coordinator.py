@@ -1,4 +1,4 @@
-"""Coordinator for Elektrilevi Meter."""
+"""Coordinator for Elering."""
 
 from __future__ import annotations
 

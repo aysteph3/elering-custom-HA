@@ -1,4 +1,4 @@
-"""Elektrilevi Meter custom integration."""
+"""Elering custom integration."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ PLATFORMS = [Platform.SENSOR]
 
 
 async def async_setup_entry(hass, entry):
-    """Set up Elektrilevi Meter from a config entry."""
+    """Set up Elering from a config entry."""
     session = async_get_clientsession(hass)
 
     client = EleringApiClient(

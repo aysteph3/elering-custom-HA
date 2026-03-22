@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to Elektrilevi Meter",
+        "title": "Connect to Elering",
         "description": "Paste your access token and meter EIC. Do not include the word Bearer.",
         "data": {
           "access_token": "Access token",
