@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import types
 import unittest
+from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -147,6 +148,53 @@ class ParseMeterSnapshotTests(unittest.TestCase):
         self.assertIsNone(snapshot.cumulative_import_kwh)
         self.assertEqual(snapshot.monthly_import_kwh, 2.0)
         self.assertEqual(snapshot.daily_import_kwh, 2.0)
+
+    def test_async_fetch_meter_data_combines_multiple_pages(self):
+        responses = [
+            {
+                "meterData": [
+                    {
+                        "direction": "IMPORT",
+                        "consumption": 1.5,
+                        "unit": "kWh",
+                        "periodEnd": "2026-03-21T00:00:00Z",
+                        "meterReading": 10.5,
+                    }
+                ]
+                * 1000,
+                "pagination": {"totalPages": 2},
+            },
+            {
+                "meterData": [
+                    {
+                        "direction": "IMPORT",
+                        "consumption": 2.0,
+                        "unit": "kWh",
+                        "periodEnd": "2026-03-21T00:15:00Z",
+                        "meterReading": 12.5,
+                    }
+                ],
+                "pagination": {"totalPages": 2},
+            },
+        ]
+        payloads = []
+
+        async def _fake_post(payload):
+            payloads.append(payload)
+            return responses[len(payloads) - 1]
+
+        with patch.object(self.client, "_async_post_meter_data_page", side_effect=_fake_post):
+            snapshot = self._run_async(self.client.async_fetch_meter_data())
+
+        self.assertEqual([payload["pagination"]["page"] for payload in payloads], [0, 1])
+        self.assertEqual(snapshot.monthly_import_kwh, 1502.0)
+        self.assertEqual(snapshot.daily_import_kwh, 1502.0)
+        self.assertEqual(snapshot.cumulative_import_kwh, 12.5)
+
+    def _run_async(self, coro):
+        import asyncio
+
+        return asyncio.run(coro)
 
 
 if __name__ == "__main__":

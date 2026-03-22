@@ -35,6 +35,7 @@ class EleringApiClient:
         """Fetch recent meter data and convert it into HA-friendly sensor values."""
         now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
         start = self._month_start(now)
+        page_size = 1000
 
         payload = {
             "searchCriteria": {
@@ -42,12 +43,41 @@ class EleringApiClient:
                 "periodStart": start.isoformat().replace("+00:00", "Z"),
                 "periodEnd": now.isoformat().replace("+00:00", "Z"),
             },
-            "pagination": {
-                "page": 0,
-                "pageSize": 1000,
-            },
         }
 
+        data = await self._async_fetch_all_meter_data_pages(payload, page_size)
+        _LOGGER.debug("Elering payload: %s", data)
+        return self._parse_meter_snapshot(data)
+
+    async def _async_fetch_all_meter_data_pages(self, payload: dict, page_size: int) -> dict:
+        """Fetch and merge all pages for a meter-data query."""
+        combined_data: dict | None = None
+        page = 0
+
+        while True:
+            response_data = await self._async_post_meter_data_page(
+                payload={
+                    **payload,
+                    "pagination": {
+                        "page": page,
+                        "pageSize": page_size,
+                    },
+                }
+            )
+            page_rows = self._extract_meter_rows(response_data)
+
+            if combined_data is None:
+                combined_data = response_data
+            else:
+                self._append_meter_rows(combined_data, page_rows)
+
+            if not self._has_additional_pages(response_data, page, page_size, len(page_rows)):
+                return combined_data or response_data
+
+            page += 1
+
+    async def _async_post_meter_data_page(self, payload: dict) -> dict:
+        """Execute a single meter-data API request."""
         headers = {
             "Authorization": f"Bearer {self._access_token}",
             "Content-Type": "application/json",
@@ -63,10 +93,81 @@ class EleringApiClient:
             body = await resp.text()
             if resp.status >= 400:
                 raise RuntimeError(f"HTTP {resp.status}: {body[:500]}")
-            data = await resp.json()
+            return await resp.json()
 
-        _LOGGER.debug("Elering payload: %s", data)
-        return self._parse_meter_snapshot(data)
+    def _extract_meter_rows(self, data: dict) -> list:
+        """Return the row list from the API payload."""
+        rows = (
+            data.get("meterData")
+            or data.get("data")
+            or data.get("content")
+            or data.get("items")
+            or []
+        )
+
+        if isinstance(rows, dict):
+            rows = rows.get("items") or rows.get("content") or []
+
+        if not isinstance(rows, list):
+            return []
+
+        return rows
+
+    def _append_meter_rows(self, combined_data: dict, page_rows: list) -> None:
+        """Append rows to the first recognized row container in-place."""
+        for key in ("meterData", "data", "content", "items"):
+            existing = combined_data.get(key)
+            if isinstance(existing, list):
+                existing.extend(page_rows)
+                return
+
+            if isinstance(existing, dict):
+                nested_rows = existing.get("items")
+                if isinstance(nested_rows, list):
+                    nested_rows.extend(page_rows)
+                    return
+                nested_rows = existing.get("content")
+                if isinstance(nested_rows, list):
+                    nested_rows.extend(page_rows)
+                    return
+
+        combined_data["meterData"] = list(page_rows)
+
+    def _has_additional_pages(
+        self, data: dict, page: int, page_size: int, row_count: int
+    ) -> bool:
+        """Determine whether the response indicates that another page exists."""
+        pagination = data.get("pagination")
+        if isinstance(pagination, dict):
+            total_pages = pagination.get("totalPages")
+            if total_pages is not None:
+                try:
+                    return page + 1 < int(total_pages)
+                except (TypeError, ValueError):
+                    pass
+
+            total_elements = pagination.get("totalElements")
+            if total_elements is not None:
+                try:
+                    return (page + 1) * page_size < int(total_elements)
+                except (TypeError, ValueError):
+                    pass
+
+        for key in ("totalPages", "pageCount"):
+            if key in data:
+                try:
+                    return page + 1 < int(data[key])
+                except (TypeError, ValueError):
+                    break
+
+        for key in ("totalElements", "totalItems"):
+            if key in data:
+                try:
+                    return (page + 1) * page_size < int(data[key])
+                except (TypeError, ValueError):
+                    break
+
+        return row_count >= page_size
 
     def _month_start(self, value: datetime) -> datetime:
         """Return the start of the current UTC month for API queries."""
@@ -78,16 +179,7 @@ class EleringApiClient:
         You will probably need to tweak the row field names after inspecting your real payload.
         This version tries several likely keys defensively.
         """
-        rows = (
-            data.get("meterData")
-            or data.get("data")
-            or data.get("content")
-            or data.get("items")
-            or []
-        )
-
-        if isinstance(rows, dict):
-            rows = rows.get("items") or rows.get("content") or []
+        rows = self._extract_meter_rows(data)
 
         parsed_rows: list[tuple[dict, float, str | None, date | None]] = []
         latest_end = None

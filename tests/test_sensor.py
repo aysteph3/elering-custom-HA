@@ -61,13 +61,13 @@ SENSOR_MODULE = _load_sensor_module()
 
 
 class CumulativeSensorUniqueIdTests(unittest.TestCase):
-    def test_cumulative_sensor_uses_new_unique_id(self):
+    def test_cumulative_sensor_preserves_existing_unique_id(self):
         coordinator = types.SimpleNamespace(data=types.SimpleNamespace(cumulative_import_kwh=1, last_period_end=None))
         entry = types.SimpleNamespace(entry_id="entry-123")
 
         sensor = SENSOR_MODULE.EleringCumulativeImportEnergySensor(coordinator, entry)
 
-        self.assertEqual(sensor.unique_id, "entry-123_cumulative_grid_import_energy")
+        self.assertEqual(sensor.unique_id, "entry-123_grid_import_energy")
 
 
 if __name__ == "__main__":
