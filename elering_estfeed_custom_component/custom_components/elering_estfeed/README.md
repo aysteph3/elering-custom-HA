@@ -14,8 +14,10 @@ Restart Home Assistant, then add the integration from:
 Settings -> Devices & Services -> Add Integration
 
 ## Required values
-- Access token: capture from your logged-in browser session
+- Access token: capture the token value from your logged-in browser session and paste only the token itself (do not include the `Bearer` prefix)
 - Meter EIC: your metering point identifier
+
+During setup, the integration now validates the supplied token and meter EIC against the upstream API before creating the config entry.
 
 ## Important
 The payload parser is still heuristic. It tries several likely row keys and cumulative-reading

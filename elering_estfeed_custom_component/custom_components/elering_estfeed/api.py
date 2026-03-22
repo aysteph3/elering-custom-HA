@@ -13,6 +13,14 @@ from .const import METER_SEARCH_URL
 _LOGGER = logging.getLogger(__name__)
 
 
+class EleringApiError(Exception):
+    """Base exception raised for API failures."""
+
+
+class EleringAuthenticationError(EleringApiError):
+    """Raised when credentials are rejected by the API."""
+
+
 @dataclass
 class MeterSnapshot:
     """Latest meter snapshot."""
@@ -63,8 +71,10 @@ class EleringApiClient:
             timeout=aiohttp.ClientTimeout(total=30),
         ) as resp:
             body = await resp.text()
+            if resp.status in (401, 403):
+                raise EleringAuthenticationError(f"HTTP {resp.status}: {body[:500]}")
             if resp.status >= 400:
-                raise RuntimeError(f"HTTP {resp.status}: {body[:500]}")
+                raise EleringApiError(f"HTTP {resp.status}: {body[:500]}")
             data = await resp.json()
 
         _LOGGER.debug("Elering payload: %s", data)

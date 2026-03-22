@@ -3,12 +3,16 @@
     "step": {
       "user": {
         "title": "Connect to Elering Estfeed",
-        "description": "Paste a bearer access token and your meter EIC.",
+        "description": "Paste your access token and meter EIC. Do not include the word Bearer.",
         "data": {
           "access_token": "Access token",
           "meter_eic": "Meter EIC"
         }
       }
     }
+  },
+  "error": {
+    "invalid_auth": "Authentication failed. Check the access token and meter EIC.",
+    "cannot_connect": "Could not connect to Elering. Try again later."
   }
 }

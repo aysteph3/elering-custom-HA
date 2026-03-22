@@ -45,6 +45,8 @@ def _load_api_module():
 
 API_MODULE = _load_api_module()
 EleringApiClient = API_MODULE.EleringApiClient
+EleringApiError = API_MODULE.EleringApiError
+EleringAuthenticationError = API_MODULE.EleringAuthenticationError
 
 
 class ParseMeterSnapshotTests(unittest.TestCase):
@@ -141,6 +143,53 @@ class ParseMeterSnapshotTests(unittest.TestCase):
         self.assertIsNone(snapshot.cumulative_import_kwh)
         self.assertEqual(snapshot.monthly_import_kwh, 2.0)
         self.assertEqual(snapshot.daily_import_kwh, 2.0)
+
+
+class FetchMeterDataErrorTests(unittest.IsolatedAsyncioTestCase):
+    """Verify API error handling."""
+
+    async def test_raises_authentication_error_for_401(self):
+        response = _MockResponse(status=401, text_data='{"error":"unauthorized"}')
+        session = _MockSession(response)
+        client = EleringApiClient(session=session, access_token="token", meter_eic="meter")
+
+        with self.assertRaises(EleringAuthenticationError):
+            await client.async_fetch_meter_data()
+
+    async def test_raises_api_error_for_other_4xx_5xx(self):
+        response = _MockResponse(status=500, text_data='{"error":"boom"}')
+        session = _MockSession(response)
+        client = EleringApiClient(session=session, access_token="token", meter_eic="meter")
+
+        with self.assertRaises(EleringApiError):
+            await client.async_fetch_meter_data()
+
+
+class _MockResponse:
+    def __init__(self, status, text_data="", json_data=None):
+        self.status = status
+        self._text_data = text_data
+        self._json_data = json_data or {}
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    async def text(self):
+        return self._text_data
+
+    async def json(self):
+        return self._json_data
+
+
+class _MockSession:
+    def __init__(self, response):
+        self._response = response
+
+    def post(self, *args, **kwargs):
+        return self._response
 
 
 if __name__ == "__main__":
