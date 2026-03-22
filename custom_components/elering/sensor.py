@@ -1,4 +1,4 @@
-"""Sensor platform for Elektrilevi Meter."""
+"""Sensor platform for Elering."""
 
 from __future__ import annotations
 
@@ -17,14 +17,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
         [
-            ElektrileviCumulativeImportEnergySensor(coordinator, entry),
-            ElektrileviMonthlyImportEnergySensor(coordinator, entry),
-            ElektrileviDailyImportEnergySensor(coordinator, entry),
+            EleringCumulativeImportEnergySensor(coordinator, entry),
+            EleringMonthlyImportEnergySensor(coordinator, entry),
+            EleringDailyImportEnergySensor(coordinator, entry),
         ]
     )
 
 
-class BaseElektrileviSensor(CoordinatorEntity, SensorEntity):
+class BaseEleringSensor(CoordinatorEntity, SensorEntity):
     """Base sensor."""
 
     _attr_has_entity_name = True
@@ -34,7 +34,7 @@ class BaseElektrileviSensor(CoordinatorEntity, SensorEntity):
         self._entry = entry
 
 
-class ElektrileviCumulativeImportEnergySensor(BaseElektrileviSensor):
+class EleringCumulativeImportEnergySensor(BaseEleringSensor):
     """Grid cumulative import energy sensor."""
 
     _attr_name = "Grid import energy"
@@ -58,7 +58,7 @@ class ElektrileviCumulativeImportEnergySensor(BaseElektrileviSensor):
         }
 
 
-class ElektrileviMonthlyImportEnergySensor(BaseElektrileviSensor):
+class EleringMonthlyImportEnergySensor(BaseEleringSensor):
     """Grid monthly import energy sensor."""
 
     _attr_name = "Monthly grid import energy"
@@ -81,7 +81,7 @@ class ElektrileviMonthlyImportEnergySensor(BaseElektrileviSensor):
         }
 
 
-class ElektrileviDailyImportEnergySensor(BaseElektrileviSensor):
+class EleringDailyImportEnergySensor(BaseEleringSensor):
     """Grid daily import energy sensor."""
 
     _attr_name = "Daily grid import energy"

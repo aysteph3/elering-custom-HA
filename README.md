@@ -1,6 +1,6 @@
-# Elektrilevi Meter for Home Assistant
+# Elering for Home Assistant
 
-Elektrilevi Meter is a Home Assistant custom integration that fetches meter consumption data through the Elering DataHub API using an authenticated browser access token and a meter EIC. It exposes import-energy sensors for the latest available cumulative, monthly, and daily totals.
+Elering is a Home Assistant custom integration that fetches meter consumption data through the Elering DataHub API using an authenticated browser access token and a meter EIC. It exposes import-energy sensors for the latest available cumulative, monthly, and daily totals.
 
 ## Features
 
@@ -18,7 +18,7 @@ This repository is structured for HACS as a custom integration repository:
 
 ```text
 custom_components/
-  elektrilevi_meter/
+  elering/
     __init__.py
     manifest.json
     ...
@@ -33,7 +33,7 @@ hacs.json
 3. Open the three-dot menu and choose **Custom repositories**.
 4. Add this repository URL.
 5. Select **Integration** as the category.
-6. Search for **Elektrilevi Meter** and install it.
+6. Search for **Elering** and install it.
 7. Restart Home Assistant.
 
 If you do not publish GitHub releases, HACS can still install from the repository's default branch.
@@ -44,7 +44,7 @@ After installation:
 
 1. Go to **Settings -> Devices & Services**.
 2. Click **Add Integration**.
-3. Search for **Elektrilevi Meter**.
+3. Search for **Elering**.
 4. Enter:
    - **Access token**: paste only the token value from your logged-in browser session, without the `Bearer` prefix.
    - **Meter EIC**: your metering point identifier.
@@ -56,7 +56,7 @@ During setup, the integration validates the token and meter EIC against the upst
 This integration currently depends on a browser-derived access token for the upstream Elering DataHub session.
 
 - Tokens may expire without warning.
-- Session handling is controlled by Elektrilevi/Elering, not by Home Assistant.
+- Session handling is controlled by Elering, not by Home Assistant.
 - If authentication stops working, you may need to obtain a fresh token from a logged-in browser session and reconfigure the integration.
 - Any upstream login-flow, API, or payload changes can require updates to this custom integration.
 
