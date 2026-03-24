@@ -37,7 +37,21 @@ hacs.json
 6. Search for **Elering** and install it.
 7. Restart Home Assistant.
 
-Create a new GitHub release for version `0.3.0` so HACS can detect and offer the update. HACS can also install from the repository's default branch if needed.
+Create a new GitHub release for version `0.4.0` so HACS can detect and offer the update. HACS can also install from the repository's default branch if needed.
+
+### Troubleshooting: `Failed to download zipball`
+
+If HACS shows:
+
+`[<Integration aysteph3/elering-custom-HA>] Failed to download zipball`
+
+check the following:
+
+1. The repository URL in **HACS -> Custom repositories** is exactly `https://github.com/aysteph3/elering-custom-HA`.
+2. The repository is public, and the default branch exists.
+3. Home Assistant can reach GitHub (no DNS/proxy/firewall blocks).
+4. You are not currently rate-limited by GitHub API (set a GitHub token in HACS settings if needed).
+5. Remove and re-add the custom repository in HACS, then restart Home Assistant.
 
 ## Configuration
 
@@ -65,6 +79,6 @@ This integration uses OAuth2 client credentials:
 
 ## Notes for maintainers
 
-- `manifest.json` includes version `0.3.0`; publish a matching GitHub tag/release so HACS detects the update.
+- `manifest.json` includes version `0.4.0`; publish a matching GitHub tag/release so HACS detects the update.
 - For the best HACS experience, make the GitHub repository public and add releases later if you want versioned installs.
 - Inclusion in the default HACS repositories is a separate review process; this repository is only prepared for HACS custom-repository usage.
