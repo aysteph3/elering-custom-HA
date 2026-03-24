@@ -1,7 +1,7 @@
 {
   "domain": "elering",
   "name": "Elering",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "documentation": "https://github.com/OWNER/elering-custom-HA#readme",
   "issue_tracker": "https://github.com/OWNER/elering-custom-HA/issues",
   "config_flow": true,

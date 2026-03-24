@@ -99,24 +99,23 @@ class ValidateInputTests(unittest.TestCase):
             title = asyncio.run(
                 CONFIG_FLOW_MODULE.async_validate_input(
                     hass=object(),
-                    user_input={"cookie_header": "sid=abc", "meter_eic": "123"},
+                    user_input={"client_id": "id", "client_secret": "secret", "meter_eic": "123"},
                 )
             )
 
         self.assertEqual(title, "Elering 123")
 
     def test_propagates_authentication_error(self):
-        mock_fetch = AsyncMock(side_effect=API_MODULE.EleringAuthenticationError("bad cookie"))
+        mock_fetch = AsyncMock(side_effect=API_MODULE.EleringAuthenticationError("bad credentials"))
 
         with patch.object(API_MODULE.EleringApiClient, "async_fetch_meter_data", mock_fetch):
             with self.assertRaises(API_MODULE.EleringAuthenticationError):
                 asyncio.run(
                     CONFIG_FLOW_MODULE.async_validate_input(
                         hass=object(),
-                        user_input={"cookie_header": "sid=abc", "meter_eic": "123"},
+                        user_input={"client_id": "id", "client_secret": "secret", "meter_eic": "123"},
                     )
                 )
-
 
 if __name__ == "__main__":
     unittest.main()

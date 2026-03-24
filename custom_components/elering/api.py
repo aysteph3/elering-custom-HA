@@ -8,7 +8,7 @@ import logging
 
 import aiohttp
 
-from .const import METER_SEARCH_URL
+from .const import METER_SEARCH_URL, TOKEN_URL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,10 +34,19 @@ class MeterSnapshot:
 class EleringApiClient:
     """Thin API client around the Elering Estfeed service."""
 
-    def __init__(self, session: aiohttp.ClientSession, cookie_header: str, meter_eic: str) -> None:
+    def __init__(
+        self,
+        session: aiohttp.ClientSession,
+        client_id: str,
+        client_secret: str,
+        meter_eic: str,
+    ) -> None:
         self._session = session
-        self._cookie_header = cookie_header
+        self._client_id = client_id
+        self._client_secret = client_secret
         self._meter_eic = meter_eic
+        self._access_token: str | None = None
+        self._access_token_expires_at: datetime | None = None
 
     async def async_fetch_meter_data(self) -> MeterSnapshot:
         """Fetch recent meter data and convert it into HA-friendly sensor values."""
@@ -58,27 +67,82 @@ class EleringApiClient:
             },
         }
 
+        data = await self._post_meter_search(payload)
+        _LOGGER.debug("Elering payload: %s", data)
+        return self._parse_meter_snapshot(data)
+
+    async def _post_meter_search(self, payload: dict) -> dict:
+        """Call meter search with a valid bearer token and one auth retry."""
+        for attempt in (1, 2):
+            token = await self._get_access_token(force_refresh=attempt == 2)
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+            }
+
+            async with self._session.post(
+                METER_SEARCH_URL,
+                json=payload,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                body = await resp.text()
+                if resp.status in (401, 403):
+                    if attempt == 1:
+                        continue
+                    raise EleringAuthenticationError(
+                        "Authentication failed: Elering client credentials are invalid, expired, or missing required access. "
+                        f"HTTP {resp.status}: {body[:500]}"
+                    )
+                if resp.status >= 400:
+                    raise EleringApiError(f"HTTP {resp.status}: {body[:500]}")
+                return await resp.json()
+
+        raise EleringAuthenticationError("Authentication failed after token refresh attempt")
+
+    async def _get_access_token(self, force_refresh: bool = False) -> str:
+        """Get or renew OAuth2 access token with client credentials."""
+        now = datetime.now(timezone.utc)
+        if not force_refresh and self._access_token and self._access_token_expires_at:
+            if now + timedelta(seconds=60) < self._access_token_expires_at:
+                return self._access_token
+
+        form_data = {
+            "grant_type": "client_credentials",
+            "client_id": self._client_id,
+            "client_secret": self._client_secret,
+            "scope": "openid",
+        }
         headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Cookie": self._cookie_header,
         }
 
         async with self._session.post(
-            METER_SEARCH_URL,
-            json=payload,
+            TOKEN_URL,
+            data=form_data,
             headers=headers,
             timeout=aiohttp.ClientTimeout(total=30),
         ) as resp:
             body = await resp.text()
-            if resp.status in (401, 403):
-                raise EleringAuthenticationError(f"HTTP {resp.status}: {body[:500]}")
+            if resp.status in (400, 401, 403):
+                raise EleringAuthenticationError(
+                    "Token request failed: verify Elering client_id/client_secret from the API guide. "
+                    f"HTTP {resp.status}: {body[:500]}"
+                )
             if resp.status >= 400:
-                raise EleringApiError(f"HTTP {resp.status}: {body[:500]}")
-            data = await resp.json()
+                raise EleringApiError(f"Token request failed HTTP {resp.status}: {body[:500]}")
+            token_data = await resp.json()
 
-        _LOGGER.debug("Elering payload: %s", data)
-        return self._parse_meter_snapshot(data)
+        access_token = token_data.get("access_token")
+        expires_in = token_data.get("expires_in")
+        if not access_token or not expires_in:
+            raise EleringApiError("Token response did not include access_token and expires_in")
+
+        self._access_token = str(access_token)
+        self._access_token_expires_at = now + timedelta(seconds=int(expires_in))
+        return self._access_token
 
     def _parse_meter_snapshot(self, data: dict) -> MeterSnapshot:
         """Parse the returned JSON.
