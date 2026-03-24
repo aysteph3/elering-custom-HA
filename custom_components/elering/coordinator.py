@@ -8,7 +8,12 @@ import logging
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import EleringAuthenticationError
+from .api import (
+    EleringResourceAuthenticationError,
+    EleringResourceAuthorizationError,
+    EleringTokenAuthenticationError,
+    EleringTokenAuthorizationError,
+)
 from .const import DEFAULT_SCAN_INTERVAL_MINUTES, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,9 +35,18 @@ class EleringCoordinator(DataUpdateCoordinator):
         """Fetch the latest data."""
         try:
             return await self.client.async_fetch_meter_data()
-        except EleringAuthenticationError as err:
+        except EleringTokenAuthenticationError as err:
             raise ConfigEntryAuthFailed(
                 "Elering client credentials are invalid or misconfigured. Update client_id/client_secret in integration options."
+            ) from err
+        except EleringTokenAuthorizationError as err:
+            raise UpdateFailed(
+                "Elering authorization server refused token issuance (HTTP 403). "
+                "Verify the technical user/client is allowed to use this grant."
+            ) from err
+        except (EleringResourceAuthenticationError, EleringResourceAuthorizationError) as err:
+            raise UpdateFailed(
+                "Elering Datahub rejected meter access. Verify meter permissions/role assignments for this technical user."
             ) from err
         except Exception as err:
             raise UpdateFailed(f"Error communicating with Elering DataHub: {err}") from err
