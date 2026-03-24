@@ -8,7 +8,12 @@ from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import EleringApiClient, EleringApiError, EleringAuthenticationError
+from .api import (
+    EleringApiClient,
+    EleringApiError,
+    EleringAuthenticationError,
+    EleringAuthorizationError,
+)
 from .const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, CONF_METER_EIC, DOMAIN
 
 
@@ -38,6 +43,8 @@ class EleringConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 title = await async_validate_input(self.hass, user_input)
             except EleringAuthenticationError:
                 errors["base"] = "invalid_auth"
+            except EleringAuthorizationError:
+                errors["base"] = "cannot_connect"
             except (EleringApiError, aiohttp.ClientError, TimeoutError):
                 errors["base"] = "cannot_connect"
             else:
@@ -78,6 +85,8 @@ class EleringOptionsFlow(config_entries.OptionsFlow):
                 await async_validate_input(self.hass, user_input)
             except EleringAuthenticationError:
                 errors["base"] = "invalid_auth"
+            except EleringAuthorizationError:
+                errors["base"] = "cannot_connect"
             except (EleringApiError, aiohttp.ClientError, TimeoutError):
                 errors["base"] = "cannot_connect"
             else:

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
+import base64
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+import json
 import logging
 
 import aiohttp
@@ -19,6 +22,10 @@ class EleringApiError(Exception):
 
 class EleringAuthenticationError(EleringApiError):
     """Raised when credentials are rejected by the API."""
+
+
+class EleringAuthorizationError(EleringApiError):
+    """Raised when token is valid but role/scope permissions are insufficient."""
 
 
 @dataclass
@@ -47,6 +54,7 @@ class EleringApiClient:
         self._meter_eic = meter_eic
         self._access_token: str | None = None
         self._access_token_expires_at: datetime | None = None
+        self._token_lock = asyncio.Lock()
 
     async def async_fetch_meter_data(self) -> MeterSnapshot:
         """Fetch recent meter data and convert it into HA-friendly sensor values."""
@@ -88,14 +96,32 @@ class EleringApiClient:
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
                 body = await resp.text()
-                if resp.status in (401, 403):
+                _LOGGER.debug(
+                    "Elering meter search response status=%s attempt=%s meter_eic=%s",
+                    resp.status,
+                    attempt,
+                    self._meter_eic,
+                )
+
+                if resp.status == 401:
                     if attempt == 1:
+                        _LOGGER.debug("Elering meter search returned 401, forcing token refresh")
                         continue
                     raise EleringAuthenticationError(
-                        "Authentication failed: Elering client credentials are invalid, expired, or missing required access. "
+                        "Meter search rejected access token (HTTP 401) after token refresh. "
                         f"HTTP {resp.status}: {body[:500]}"
                     )
+                if resp.status == 403:
+                    raise EleringAuthorizationError(
+                        "Meter search denied by Datahub authorization (HTTP 403). "
+                        "Token may be valid, but the technical user lacks required role/access context for this meter."
+                    )
                 if resp.status >= 400:
+                    if self._looks_like_wrong_endpoint_family(body):
+                        raise EleringApiError(
+                            "Meter endpoint does not appear to be a Datahub JSON API response. "
+                            f"Potential endpoint mismatch at {METER_SEARCH_URL}. HTTP {resp.status}"
+                        )
                     raise EleringApiError(f"HTTP {resp.status}: {body[:500]}")
                 return await resp.json()
 
@@ -103,46 +129,85 @@ class EleringApiClient:
 
     async def _get_access_token(self, force_refresh: bool = False) -> str:
         """Get or renew OAuth2 access token with client credentials."""
-        now = datetime.now(timezone.utc)
-        if not force_refresh and self._access_token and self._access_token_expires_at:
-            if now + timedelta(seconds=60) < self._access_token_expires_at:
-                return self._access_token
+        async with self._token_lock:
+            now = datetime.now(timezone.utc)
+            if not force_refresh and self._access_token and self._access_token_expires_at:
+                if now + timedelta(seconds=60) < self._access_token_expires_at:
+                    return self._access_token
 
-        form_data = {
-            "grant_type": "client_credentials",
-            "client_id": self._client_id,
-            "client_secret": self._client_secret,
-            "scope": "openid",
+            form_data = {
+                "grant_type": "client_credentials",
+                "client_id": self._client_id,
+                "client_secret": self._client_secret,
+                "scope": "openid",
+            }
+            headers = {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Accept": "application/json",
+            }
+
+            async with self._session.post(
+                TOKEN_URL,
+                data=form_data,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                body = await resp.text()
+                _LOGGER.debug("Elering token endpoint response status=%s", resp.status)
+                if resp.status in (400, 401):
+                    raise EleringAuthenticationError(
+                        "Token request failed with invalid OAuth client credentials. "
+                        f"HTTP {resp.status}: {body[:500]}"
+                    )
+                if resp.status == 403:
+                    raise EleringAuthorizationError(
+                        "Token request forbidden by authorization server (HTTP 403). "
+                        "Technical user may be blocked or lack token grant permissions."
+                    )
+                if resp.status >= 400:
+                    raise EleringApiError(f"Token request failed HTTP {resp.status}: {body[:500]}")
+                token_data = await resp.json()
+
+            access_token = token_data.get("access_token")
+            expires_in = token_data.get("expires_in")
+            if not access_token or not expires_in:
+                raise EleringApiError("Token response did not include access_token and expires_in")
+
+            self._access_token = str(access_token)
+            self._access_token_expires_at = now + timedelta(seconds=int(expires_in))
+
+            token_context = self._extract_token_context(self._access_token)
+            _LOGGER.debug(
+                "Elering token acquired exp=%s participant=%s roles=%s",
+                self._access_token_expires_at.isoformat() if self._access_token_expires_at else None,
+                token_context.get("market_participant_identification"),
+                token_context.get("roles"),
+            )
+            return self._access_token
+
+    def _extract_token_context(self, token: str) -> dict[str, str | list[str] | None]:
+        """Extract safe debug context from JWT payload without verifying signature."""
+        try:
+            parts = token.split(".")
+            if len(parts) < 2:
+                return {}
+            payload_b64 = parts[1] + "=" * (-len(parts[1]) % 4)
+            payload_raw = base64.urlsafe_b64decode(payload_b64.encode("utf-8")).decode("utf-8")
+            payload = json.loads(payload_raw)
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
+            return {}
+
+        return {
+            "market_participant_identification": payload.get("marketParticipantIdentification")
+            or payload.get("market_participant_identification")
+            or payload.get("sub"),
+            "roles": payload.get("roles") or payload.get("realm_access", {}).get("roles"),
         }
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Accept": "application/json",
-        }
 
-        async with self._session.post(
-            TOKEN_URL,
-            data=form_data,
-            headers=headers,
-            timeout=aiohttp.ClientTimeout(total=30),
-        ) as resp:
-            body = await resp.text()
-            if resp.status in (400, 401, 403):
-                raise EleringAuthenticationError(
-                    "Token request failed: verify Elering client_id/client_secret from the API guide. "
-                    f"HTTP {resp.status}: {body[:500]}"
-                )
-            if resp.status >= 400:
-                raise EleringApiError(f"Token request failed HTTP {resp.status}: {body[:500]}")
-            token_data = await resp.json()
-
-        access_token = token_data.get("access_token")
-        expires_in = token_data.get("expires_in")
-        if not access_token or not expires_in:
-            raise EleringApiError("Token response did not include access_token and expires_in")
-
-        self._access_token = str(access_token)
-        self._access_token_expires_at = now + timedelta(seconds=int(expires_in))
-        return self._access_token
+    def _looks_like_wrong_endpoint_family(self, body: str) -> bool:
+        """Detect obvious non-Datahub API responses to flag endpoint mismatch."""
+        snippet = body.lower()
+        return "<html" in snippet or "openid-connect" in snippet or "keycloak" in snippet
 
     def _parse_meter_snapshot(self, data: dict) -> MeterSnapshot:
         """Parse the returned JSON.
