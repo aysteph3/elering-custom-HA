@@ -34,9 +34,9 @@ class MeterSnapshot:
 class EleringApiClient:
     """Thin API client around the Elering Estfeed service."""
 
-    def __init__(self, session: aiohttp.ClientSession, cookie_header: str, meter_eic: str) -> None:
+    def __init__(self, session: aiohttp.ClientSession, api_token: str, meter_eic: str) -> None:
         self._session = session
-        self._cookie_header = cookie_header
+        self._api_token = api_token
         self._meter_eic = meter_eic
 
     async def async_fetch_meter_data(self) -> MeterSnapshot:
@@ -61,7 +61,7 @@ class EleringApiClient:
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "Cookie": self._cookie_header,
+            "Authorization": f"Bearer {self._api_token}",
         }
 
         async with self._session.post(
@@ -72,7 +72,10 @@ class EleringApiClient:
         ) as resp:
             body = await resp.text()
             if resp.status in (401, 403):
-                raise EleringAuthenticationError(f"HTTP {resp.status}: {body[:500]}")
+                raise EleringAuthenticationError(
+                    "Authentication failed: Elering API token is invalid, expired, or missing required access. "
+                    f"HTTP {resp.status}: {body[:500]}"
+                )
             if resp.status >= 400:
                 raise EleringApiError(f"HTTP {resp.status}: {body[:500]}")
             data = await resp.json()

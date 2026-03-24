@@ -99,23 +99,29 @@ class ValidateInputTests(unittest.TestCase):
             title = asyncio.run(
                 CONFIG_FLOW_MODULE.async_validate_input(
                     hass=object(),
-                    user_input={"cookie_header": "sid=abc", "meter_eic": "123"},
+                    user_input={"api_token": "token", "meter_eic": "123"},
                 )
             )
 
         self.assertEqual(title, "Elering 123")
 
     def test_propagates_authentication_error(self):
-        mock_fetch = AsyncMock(side_effect=API_MODULE.EleringAuthenticationError("bad cookie"))
+        mock_fetch = AsyncMock(side_effect=API_MODULE.EleringAuthenticationError("bad token"))
 
         with patch.object(API_MODULE.EleringApiClient, "async_fetch_meter_data", mock_fetch):
             with self.assertRaises(API_MODULE.EleringAuthenticationError):
                 asyncio.run(
                     CONFIG_FLOW_MODULE.async_validate_input(
                         hass=object(),
-                        user_input={"cookie_header": "sid=abc", "meter_eic": "123"},
+                        user_input={"api_token": "token", "meter_eic": "123"},
                     )
                 )
+
+    def test_legacy_cookie_field_is_accepted_for_backward_compatibility(self):
+        self.assertEqual(
+            CONFIG_FLOW_MODULE._get_api_token({"cookie_header": "legacy", "meter_eic": "123"}),
+            "legacy",
+        )
 
 
 if __name__ == "__main__":

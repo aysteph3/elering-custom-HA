@@ -3,9 +3,9 @@
     "step": {
       "user": {
         "title": "Connect to Elering",
-        "description": "Paste your browser session cookie header and meter EIC.",
+        "description": "Enter your user-generated Elering API token and meter EIC.",
         "data": {
-          "cookie_header": "Cookie header",
+          "api_token": "API token",
           "meter_eic": "Meter EIC"
         }
       }
@@ -14,17 +14,17 @@
   "options": {
     "step": {
       "init": {
-        "title": "Update Elering session",
-        "description": "Update the cookie header or meter EIC used for Elering DataHub requests.",
+        "title": "Update Elering API token",
+        "description": "Update the API token or meter EIC used for Elering DataHub requests.",
         "data": {
-          "cookie_header": "Cookie header",
+          "api_token": "API token",
           "meter_eic": "Meter EIC"
         }
       }
     }
   },
   "error": {
-    "invalid_auth": "Authentication failed. Check the cookie header and meter EIC.",
+    "invalid_auth": "Authentication failed. Check your Elering API token and meter EIC.",
     "cannot_connect": "Could not connect to Elering DataHub. Try again later."
   }
 }
