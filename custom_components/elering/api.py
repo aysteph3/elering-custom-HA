@@ -133,6 +133,11 @@ class EleringApiClient:
                         "Meter search denied by Datahub authorization (HTTP 403). "
                         "Token may be valid, but the technical user lacks required role/access context for this meter."
                     )
+                if resp.status == 403:
+                    raise EleringAuthorizationError(
+                        "Meter search denied by Datahub authorization (HTTP 403). "
+                        "Token may be valid, but the technical user lacks required role/access context for this meter."
+                    )
                 if resp.status >= 400:
                     self._log_http_failure("meter_search", resp.status, body)
                     if self._looks_like_wrong_endpoint_family(body):
