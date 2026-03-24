@@ -40,6 +40,11 @@ async def async_setup_entry(hass, entry):
     """Set up Elering from a config entry."""
     session = async_get_clientsession(hass)
 
+    api_token = entry.options.get(
+        CONF_API_TOKEN,
+        entry.data.get(CONF_API_TOKEN, entry.options.get(CONF_COOKIE_HEADER, entry.data.get(CONF_COOKIE_HEADER, ""))),
+    )
+
     client = EleringApiClient(
         session=session,
         client_id=entry.options.get(CONF_CLIENT_ID, entry.data.get(CONF_CLIENT_ID, "")),

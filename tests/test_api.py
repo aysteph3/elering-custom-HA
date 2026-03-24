@@ -157,6 +157,7 @@ class _MockSession:
     def __init__(self, responses):
         self._responses = list(responses)
         self.calls = []
+        self.method_calls = []
 
     def post(self, url, **kwargs):
         self.calls.append({"url": url, "kwargs": kwargs})
