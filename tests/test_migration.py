@@ -63,11 +63,11 @@ INIT_MODULE, CONST_MODULE = _load_init_module()
 
 
 class MigrationTests(unittest.TestCase):
-    def test_migrates_legacy_cookie_to_api_token(self):
+    def test_adds_oauth_fields_for_legacy_entry(self):
         entry = types.SimpleNamespace(
-            version=2,
-            data={"cookie_header": "legacy-token", "meter_eic": "123"},
-            options={"cookie_header": "legacy-opt-token"},
+            version=3,
+            data={"meter_eic": "123", "api_token": "legacy"},
+            options={},
         )
         captured = {}
 
@@ -83,9 +83,9 @@ class MigrationTests(unittest.TestCase):
         result = asyncio.run(INIT_MODULE.async_migrate_entry(hass, entry))
 
         self.assertTrue(result)
-        self.assertEqual(captured["version"], 3)
-        self.assertEqual(captured["data"][CONST_MODULE.CONF_API_TOKEN], "legacy-token")
-        self.assertEqual(captured["options"][CONST_MODULE.CONF_API_TOKEN], "legacy-opt-token")
+        self.assertEqual(captured["version"], 4)
+        self.assertEqual(captured["data"][CONST_MODULE.CONF_CLIENT_ID], "")
+        self.assertEqual(captured["data"][CONST_MODULE.CONF_CLIENT_SECRET], "")
 
 
 if __name__ == "__main__":

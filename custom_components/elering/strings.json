@@ -3,9 +3,10 @@
     "step": {
       "user": {
         "title": "Connect to Elering",
-        "description": "Enter your user-generated Elering API token and meter EIC.",
+        "description": "Enter your Elering Client Portal API credentials and meter EIC.",
         "data": {
-          "api_token": "API token",
+          "client_id": "Client ID",
+          "client_secret": "Client secret",
           "meter_eic": "Meter EIC"
         }
       }
@@ -14,17 +15,18 @@
   "options": {
     "step": {
       "init": {
-        "title": "Update Elering API token",
-        "description": "Update the API token or meter EIC used for Elering DataHub requests.",
+        "title": "Update Elering API credentials",
+        "description": "Update the Client Portal client_id/client_secret or meter EIC used for Elering DataHub requests.",
         "data": {
-          "api_token": "API token",
+          "client_id": "Client ID",
+          "client_secret": "Client secret",
           "meter_eic": "Meter EIC"
         }
       }
     }
   },
   "error": {
-    "invalid_auth": "Authentication failed. Check your Elering API token and meter EIC.",
+    "invalid_auth": "Authentication failed. Check your Elering client ID, client secret, and meter EIC.",
     "cannot_connect": "Could not connect to Elering DataHub. Try again later."
   }
 }

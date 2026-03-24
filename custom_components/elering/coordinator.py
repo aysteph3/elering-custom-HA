@@ -32,7 +32,7 @@ class EleringCoordinator(DataUpdateCoordinator):
             return await self.client.async_fetch_meter_data()
         except EleringAuthenticationError as err:
             raise ConfigEntryAuthFailed(
-                "Elering API token is invalid, expired, or missing required permissions. Update the token in integration options."
+                "Elering client credentials are invalid or misconfigured. Update client_id/client_secret in integration options."
             ) from err
         except Exception as err:
             raise UpdateFailed(f"Error communicating with Elering DataHub: {err}") from err

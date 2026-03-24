@@ -8,26 +8,31 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import EleringApiClient
-from .const import CONF_API_TOKEN, CONF_COOKIE_HEADER, CONF_METER_EIC, DOMAIN
+from .const import (
+    CONF_CLIENT_ID,
+    CONF_CLIENT_SECRET,
+    CONF_METER_EIC,
+    DOMAIN,
+)
 from .coordinator import EleringCoordinator
 
 PLATFORMS = [Platform.SENSOR]
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Migrate config entries to API-token based schema."""
-    if entry.version >= 3:
+    """Migrate config entries to OAuth2 client-credential schema."""
+    if entry.version >= 4:
         return True
 
     data = dict(entry.data)
     options = dict(entry.options)
 
-    if CONF_API_TOKEN not in data and CONF_COOKIE_HEADER in data:
-        data[CONF_API_TOKEN] = data[CONF_COOKIE_HEADER]
-    if CONF_API_TOKEN not in options and CONF_COOKIE_HEADER in options:
-        options[CONF_API_TOKEN] = options[CONF_COOKIE_HEADER]
+    data.setdefault(CONF_CLIENT_ID, "")
+    data.setdefault(CONF_CLIENT_SECRET, "")
+    options.setdefault(CONF_CLIENT_ID, data.get(CONF_CLIENT_ID, ""))
+    options.setdefault(CONF_CLIENT_SECRET, data.get(CONF_CLIENT_SECRET, ""))
 
-    hass.config_entries.async_update_entry(entry, data=data, options=options, version=3)
+    hass.config_entries.async_update_entry(entry, data=data, options=options, version=4)
     return True
 
 
@@ -42,7 +47,8 @@ async def async_setup_entry(hass, entry):
 
     client = EleringApiClient(
         session=session,
-        api_token=api_token,
+        client_id=entry.options.get(CONF_CLIENT_ID, entry.data.get(CONF_CLIENT_ID, "")),
+        client_secret=entry.options.get(CONF_CLIENT_SECRET, entry.data.get(CONF_CLIENT_SECRET, "")),
         meter_eic=entry.options.get(CONF_METER_EIC, entry.data[CONF_METER_EIC]),
     )
 
