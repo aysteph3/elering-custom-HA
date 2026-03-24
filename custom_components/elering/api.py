@@ -28,6 +28,22 @@ class EleringAuthorizationError(EleringApiError):
     """Raised when token is valid but role/scope permissions are insufficient."""
 
 
+class EleringTokenAuthenticationError(EleringAuthenticationError):
+    """Raised when OAuth client credentials are rejected by token endpoint."""
+
+
+class EleringTokenAuthorizationError(EleringAuthorizationError):
+    """Raised when token endpoint forbids issuing token for this client."""
+
+
+class EleringResourceAuthenticationError(EleringApiError):
+    """Raised when resource endpoint rejects a bearer token."""
+
+
+class EleringResourceAuthorizationError(EleringAuthorizationError):
+    """Raised when resource endpoint denies permissions for requested resource."""
+
+
 @dataclass
 class MeterSnapshot:
     """Latest meter snapshot."""
@@ -107,9 +123,15 @@ class EleringApiClient:
                     if attempt == 1:
                         _LOGGER.debug("Elering meter search returned 401, forcing token refresh")
                         continue
-                    raise EleringAuthenticationError(
-                        "Meter search rejected access token (HTTP 401) after token refresh. "
-                        f"HTTP {resp.status}: {body[:500]}"
+                    self._log_http_failure("meter_search", resp.status, body)
+                    raise EleringResourceAuthenticationError(
+                        "Meter search rejected bearer token (HTTP 401) even after refresh."
+                    )
+                if resp.status == 403:
+                    self._log_http_failure("meter_search", resp.status, body)
+                    raise EleringResourceAuthorizationError(
+                        "Meter search denied by Datahub authorization (HTTP 403). "
+                        "Token may be valid, but the technical user lacks required role/access context for this meter."
                     )
                 if resp.status == 403:
                     raise EleringAuthorizationError(
@@ -117,6 +139,7 @@ class EleringApiClient:
                         "Token may be valid, but the technical user lacks required role/access context for this meter."
                     )
                 if resp.status >= 400:
+                    self._log_http_failure("meter_search", resp.status, body)
                     if self._looks_like_wrong_endpoint_family(body):
                         raise EleringApiError(
                             "Meter endpoint does not appear to be a Datahub JSON API response. "
@@ -155,16 +178,19 @@ class EleringApiClient:
                 body = await resp.text()
                 _LOGGER.debug("Elering token endpoint response status=%s", resp.status)
                 if resp.status in (400, 401):
-                    raise EleringAuthenticationError(
+                    self._log_http_failure("token", resp.status, body)
+                    raise EleringTokenAuthenticationError(
                         "Token request failed with invalid OAuth client credentials. "
                         f"HTTP {resp.status}: {body[:500]}"
                     )
                 if resp.status == 403:
-                    raise EleringAuthorizationError(
+                    self._log_http_failure("token", resp.status, body)
+                    raise EleringTokenAuthorizationError(
                         "Token request forbidden by authorization server (HTTP 403). "
                         "Technical user may be blocked or lack token grant permissions."
                     )
                 if resp.status >= 400:
+                    self._log_http_failure("token", resp.status, body)
                     raise EleringApiError(f"Token request failed HTTP {resp.status}: {body[:500]}")
                 token_data = await resp.json()
 
@@ -178,12 +204,17 @@ class EleringApiClient:
 
             token_context = self._extract_token_context(self._access_token)
             _LOGGER.debug(
-                "Elering token acquired exp=%s participant=%s roles=%s",
+                "Elering token acquisition succeeded exp=%s participant=%s roles=%s",
                 self._access_token_expires_at.isoformat() if self._access_token_expires_at else None,
                 token_context.get("market_participant_identification"),
                 token_context.get("roles"),
             )
             return self._access_token
+
+    def _log_http_failure(self, step: str, status: int, body: str) -> None:
+        """Log an HTTP failure with safe truncated body and no secrets."""
+        snippet = body[:500].replace("\n", " ").replace("\r", " ")
+        _LOGGER.debug("Elering %s failed status=%s body_snippet=%s", step, status, snippet)
 
     def _extract_token_context(self, token: str) -> dict[str, str | list[str] | None]:
         """Extract safe debug context from JWT payload without verifying signature."""

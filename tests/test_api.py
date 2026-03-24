@@ -47,8 +47,8 @@ def _load_api_module():
 API_MODULE = _load_api_module()
 EleringApiClient = API_MODULE.EleringApiClient
 EleringApiError = API_MODULE.EleringApiError
-EleringAuthenticationError = API_MODULE.EleringAuthenticationError
-EleringAuthorizationError = API_MODULE.EleringAuthorizationError
+EleringResourceAuthorizationError = API_MODULE.EleringResourceAuthorizationError
+EleringTokenAuthenticationError = API_MODULE.EleringTokenAuthenticationError
 TOKEN_URL = API_MODULE.TOKEN_URL
 METER_SEARCH_URL = API_MODULE.METER_SEARCH_URL
 
@@ -92,14 +92,14 @@ class FetchMeterDataOAuthTests(unittest.IsolatedAsyncioTestCase):
         session = _MockSession([_MockResponse(status=401, text_data='{"error":"invalid_client"}')])
         client = EleringApiClient(session=session, client_id="bad", client_secret="bad", meter_eic="meter")
 
-        with self.assertRaises(EleringAuthenticationError):
+        with self.assertRaises(EleringTokenAuthenticationError):
             await client.async_fetch_meter_data()
 
     async def test_token_400_raises_auth_error(self):
         session = _MockSession([_MockResponse(status=400, text_data='{"error":"invalid_client"}')])
         client = EleringApiClient(session=session, client_id="bad", client_secret="bad", meter_eic="meter")
 
-        with self.assertRaises(EleringAuthenticationError):
+        with self.assertRaises(EleringTokenAuthenticationError):
             await client.async_fetch_meter_data()
 
     async def test_meter_403_raises_authorization_error(self):
@@ -111,7 +111,21 @@ class FetchMeterDataOAuthTests(unittest.IsolatedAsyncioTestCase):
         )
         client = EleringApiClient(session=session, client_id="id", client_secret="secret", meter_eic="meter")
 
-        with self.assertRaises(EleringAuthorizationError):
+        with self.assertRaises(EleringResourceAuthorizationError):
+            await client.async_fetch_meter_data()
+
+    async def test_meter_401_after_refresh_raises_resource_auth_error(self):
+        session = _MockSession(
+            [
+                _MockResponse(status=200, json_data={"access_token": "abc", "expires_in": 300}),
+                _MockResponse(status=401, text_data='{"error":"bad token"}'),
+                _MockResponse(status=200, json_data={"access_token": "def", "expires_in": 300}),
+                _MockResponse(status=401, text_data='{"error":"still bad"}'),
+            ]
+        )
+        client = EleringApiClient(session=session, client_id="id", client_secret="secret", meter_eic="meter")
+
+        with self.assertRaises(API_MODULE.EleringResourceAuthenticationError):
             await client.async_fetch_meter_data()
 
     async def test_token_acquisition_is_locked_for_concurrent_requests(self):

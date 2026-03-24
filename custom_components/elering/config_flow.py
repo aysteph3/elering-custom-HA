@@ -11,8 +11,10 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import (
     EleringApiClient,
     EleringApiError,
-    EleringAuthenticationError,
-    EleringAuthorizationError,
+    EleringResourceAuthenticationError,
+    EleringResourceAuthorizationError,
+    EleringTokenAuthenticationError,
+    EleringTokenAuthorizationError,
 )
 from .const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, CONF_METER_EIC, DOMAIN
 
@@ -41,9 +43,13 @@ class EleringConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 title = await async_validate_input(self.hass, user_input)
-            except EleringAuthenticationError:
+            except EleringTokenAuthenticationError:
                 errors["base"] = "invalid_auth"
-            except EleringAuthorizationError:
+            except (
+                EleringTokenAuthorizationError,
+                EleringResourceAuthenticationError,
+                EleringResourceAuthorizationError,
+            ):
                 errors["base"] = "cannot_connect"
             except (EleringApiError, aiohttp.ClientError, TimeoutError):
                 errors["base"] = "cannot_connect"
@@ -83,9 +89,13 @@ class EleringOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             try:
                 await async_validate_input(self.hass, user_input)
-            except EleringAuthenticationError:
+            except EleringTokenAuthenticationError:
                 errors["base"] = "invalid_auth"
-            except EleringAuthorizationError:
+            except (
+                EleringTokenAuthorizationError,
+                EleringResourceAuthenticationError,
+                EleringResourceAuthorizationError,
+            ):
                 errors["base"] = "cannot_connect"
             except (EleringApiError, aiohttp.ClientError, TimeoutError):
                 errors["base"] = "cannot_connect"
