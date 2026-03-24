@@ -1,10 +1,10 @@
 # Elering for Home Assistant
 
-Elering is a Home Assistant custom integration that fetches meter consumption data through the Elering DataHub API using an authenticated browser session cookie header and a meter EIC. It exposes import-energy sensors for the latest available cumulative, monthly, and daily totals.
+Elering is a Home Assistant custom integration that fetches meter consumption data through the Elering DataHub API using a user-generated Elering API token and a meter EIC. It exposes import-energy sensors for the latest available cumulative, monthly, and daily totals.
 
 ## Features
 
-- Validates the supplied cookie header and meter EIC during config flow setup.
+- Validates the supplied API token and meter EIC during config flow setup.
 - Fetches up to the latest seven days of meter data from the upstream API.
 - Provides three energy sensors:
   - `Grid import energy`
@@ -46,19 +46,19 @@ After installation:
 2. Click **Add Integration**.
 3. Search for **Elering**.
 4. Enter:
-   - **Cookie header**: paste the full cookie string from your logged-in browser session, for example `JSESSIONID=...; XSRF-TOKEN=...`.
+   - **API token**: paste the user-generated token from your Elering account API guide page.
    - **Meter EIC**: your metering point identifier.
 
-During setup, the integration validates the cookie header and meter EIC against the upstream API before creating the config entry.
+During setup, the integration validates the API token and meter EIC against the upstream API before creating the config entry.
 
-## Authentication and session limitations
+## Authentication and token handling
 
-This integration currently depends on browser-derived session cookies for the upstream Elering DataHub session.
+This integration uses a user-generated Elering API token for upstream DataHub requests.
 
-- Cookies may expire without warning.
-- Session handling is controlled by Elering, not by Home Assistant.
-- If authentication stops working, you can update the cookie header from the Home Assistant integration options without removing and re-adding the integration.
-- Any upstream login-flow, API, or payload changes can require updates to this custom integration.
+- The token is user-managed and manually rotated from the Elering account page.
+- No automatic login or refresh flow is implemented for this token type.
+- If authentication fails (for example `401`/`403`), update the token from Home Assistant integration options without removing and re-adding the integration.
+- Any upstream API or payload changes can require updates to this custom integration.
 
 ## Notes for maintainers
 

@@ -5,8 +5,10 @@ from __future__ import annotations
 from datetime import timedelta
 import logging
 
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
+from .api import EleringAuthenticationError
 from .const import DEFAULT_SCAN_INTERVAL_MINUTES, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,5 +30,9 @@ class EleringCoordinator(DataUpdateCoordinator):
         """Fetch the latest data."""
         try:
             return await self.client.async_fetch_meter_data()
+        except EleringAuthenticationError as err:
+            raise ConfigEntryAuthFailed(
+                "Elering API token is invalid, expired, or missing required permissions. Update the token in integration options."
+            ) from err
         except Exception as err:
             raise UpdateFailed(f"Error communicating with Elering DataHub: {err}") from err

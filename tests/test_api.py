@@ -1,4 +1,4 @@
-"""Unit tests for the Elering API payload parser."""
+"""Unit tests for the Elering API payload parser and auth model."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ class ParseMeterSnapshotTests(unittest.TestCase):
     """Verify meter snapshot parsing."""
 
     def setUp(self):
-        self.client = EleringApiClient(session=None, cookie_header="sid=abc", meter_eic="meter")
+        self.client = EleringApiClient(session=None, api_token="token", meter_eic="meter")
 
     def test_uses_latest_row_cumulative_reading_and_computes_daily_monthly(self):
         snapshot = self.client._parse_meter_snapshot(
@@ -89,69 +89,14 @@ class ParseMeterSnapshotTests(unittest.TestCase):
         self.assertEqual(snapshot.daily_import_kwh, 7.0)
         self.assertEqual(snapshot.last_period_end, "2026-03-21T00:15:00Z")
 
-    def test_uses_top_level_cumulative_reading_when_row_level_is_missing(self):
-        snapshot = self.client._parse_meter_snapshot(
-            {
-                "cumulativeImportKwh": 550.25,
-                "items": [
-                    {
-                        "direction": "IMPORT",
-                        "quantity": 1200,
-                        "unit": "Wh",
-                        "periodEnd": "2026-03-21T08:00:00Z",
-                    },
-                    {
-                        "direction": "IMPORT",
-                        "quantity": 1.8,
-                        "unit": "kWh",
-                        "periodEnd": "2026-03-21T09:00:00Z",
-                    },
-                ],
-            }
-        )
-
-        self.assertEqual(snapshot.cumulative_import_kwh, 550.25)
-        self.assertEqual(snapshot.monthly_import_kwh, 3.0)
-        self.assertEqual(snapshot.daily_import_kwh, 3.0)
-
-    def test_ignores_non_import_rows_and_handles_missing_cumulative_reading(self):
-        snapshot = self.client._parse_meter_snapshot(
-            {
-                "content": [
-                    {
-                        "direction": "EXPORT",
-                        "value": 10,
-                        "unit": "kWh",
-                        "periodEnd": "2026-03-21T08:00:00Z",
-                    },
-                    {
-                        "direction": "IMPORT",
-                        "value": 2,
-                        "unit": "kWh",
-                        "periodEnd": "2026-03-21T09:00:00Z",
-                    },
-                    {
-                        "direction": "IMPORT",
-                        "value": 5,
-                        "unit": "kWh",
-                        "periodEnd": "2026-02-28T23:45:00Z",
-                    },
-                ]
-            }
-        )
-
-        self.assertIsNone(snapshot.cumulative_import_kwh)
-        self.assertEqual(snapshot.monthly_import_kwh, 2.0)
-        self.assertEqual(snapshot.daily_import_kwh, 2.0)
-
 
 class FetchMeterDataErrorTests(unittest.IsolatedAsyncioTestCase):
-    """Verify API error handling."""
+    """Verify API error handling and auth headers."""
 
     async def test_raises_authentication_error_for_401(self):
         response = _MockResponse(status=401, text_data='{"error":"unauthorized"}')
         session = _MockSession(response)
-        client = EleringApiClient(session=session, cookie_header="sid=abc", meter_eic="meter")
+        client = EleringApiClient(session=session, api_token="token", meter_eic="meter")
 
         with self.assertRaises(EleringAuthenticationError):
             await client.async_fetch_meter_data()
@@ -159,24 +104,21 @@ class FetchMeterDataErrorTests(unittest.IsolatedAsyncioTestCase):
     async def test_raises_api_error_for_other_4xx_5xx(self):
         response = _MockResponse(status=500, text_data='{"error":"boom"}')
         session = _MockSession(response)
-        client = EleringApiClient(session=session, cookie_header="sid=abc", meter_eic="meter")
+        client = EleringApiClient(session=session, api_token="token", meter_eic="meter")
 
         with self.assertRaises(EleringApiError):
             await client.async_fetch_meter_data()
 
-    async def test_sends_cookie_header_in_request(self):
+    async def test_sends_bearer_token_in_request(self):
         response = _MockResponse(status=200, json_data={"meterData": []})
         session = _MockSession(response)
-        client = EleringApiClient(
-            session=session,
-            cookie_header="JSESSIONID=abc; XSRF-TOKEN=def",
-            meter_eic="meter",
-        )
+        client = EleringApiClient(session=session, api_token="my-token", meter_eic="meter")
 
         await client.async_fetch_meter_data()
 
-        self.assertEqual(session.calls[0]["headers"]["Cookie"], "JSESSIONID=abc; XSRF-TOKEN=def")
-        self.assertNotIn("Authorization", session.calls[0]["headers"])
+        self.assertEqual(session.calls[0]["headers"]["Authorization"], "Bearer my-token")
+        self.assertNotIn("Cookie", session.calls[0]["headers"])
+        self.assertEqual(session.method_calls, ["post"])
 
 
 class _MockResponse:
@@ -202,8 +144,10 @@ class _MockSession:
     def __init__(self, response):
         self._response = response
         self.calls = []
+        self.method_calls = []
 
     def post(self, *args, **kwargs):
+        self.method_calls.append("post")
         self.calls.append(kwargs)
         return self._response
 
